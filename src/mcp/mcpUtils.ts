@@ -73,11 +73,11 @@ export function getMCPInstance() {
 /**
  * Parses tool results from Cortex Agent responses and updates the state.
  * @param {any[]} results - Array of tool result objects.
- * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update with parsed values.
+ * @param {{citations: { doc_id: string; source_id: string }[], sql: string, text: string}} state - The state object to update with parsed values.
  */
 export function parseToolResults(
   results: unknown[],
-  state: { citations:unknown[]; sql: string; text: string }
+  state: { citations: { doc_id: string; source_id: string }[]; sql: string; text: string }
 ) {
   for (const r of results) {
     const result = r as ToolResult; // safe because we validate below
@@ -101,11 +101,11 @@ export function parseToolResults(
 /**
  * Processes delta content (chunks of partial results) from an SSE stream.
  * @param {any[]} content - The content array from the delta payload.
- * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
+ * @param {{citations: { doc_id: string; source_id: string }[], sql: string, text: string}} state - The state object to update.
  */
 export function processDeltaContent(
   content: unknown[],
-  state: { citations: unknown[]; sql: string; text: string }
+  state: { citations: { doc_id: string; source_id: string }[]; sql: string; text: string }
 ) {
   for (const item of content as DeltaItem[]) {
     if (item.type === "text") {
@@ -119,10 +119,10 @@ export function processDeltaContent(
 /**
  * Processes a single line of SSE stream output.
  * @param {string} line - A line from the SSE response.
- * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
+ * @param {{ citations: { doc_id: string; source_id: string }[], sql: string, text: string }} state - The state object to update.
  */
 export function processLine(
-  line: string, state: { citations: unknown[]; sql: string; text: string }
+  line: string, state: { citations: { doc_id: string; source_id: string }[]; sql: string; text: string }
 ) {
   if (line.startsWith("data:")) {
     processPayload(line.slice(5).trim(), state);
@@ -132,11 +132,11 @@ export function processLine(
 /**
  * Parses a JSON payload from an SSE response and updates the state.
  * @param {string} payload - The JSON payload string.
- * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
+ * @param { { citations: { doc_id: string; source_id: string }[], sql: string, text: string } } state - The state object to update.
  */
 export function processPayload(
   payload: string,
-  state: { citations: unknown[]; sql: string; text: string }
+  state: { citations: { doc_id: string; source_id: string }[]; sql: string; text: string }
 ) {
   if (!payload || payload === "[DONE]") return;
 
@@ -158,7 +158,7 @@ export function processPayload(
  * @returns {Promise<SSEOutput>} A tuple containing [text, sql, citations].
  */
 export async function processSSEResponse(resp: Response): Promise<SSEOutput> {
-  const state = { citations: [] as unknown[], sql: "", text: "" };
+  const state = { citations: [] as { doc_id: string; source_id: string }[], sql: "", text: "" };
   const decoder = new TextDecoder("utf-8");
   // Treat body as a stream
   const stream = resp.body as unknown as NodeJS.ReadableStream;
@@ -177,7 +177,7 @@ export async function processSSEResponse(resp: Response): Promise<SSEOutput> {
  * Runs a Cortex Agent query end-to-end: sends query, processes SSE responses, and executes SQL if generated.
  * @param {string} query - The natural language query to run.
  * @param {string} pat - Programmatic access token for authentication.
- * @returns {Promise<{ citations: unknown[], results: any, sql: string, text: string }>} 
+ * @returns {Promise<{ citations: { doc_id: string; source_id: string }[], results: any, sql: string, text: string }>} 
  * Object containing citations, SQL execution results (if any), generated SQL, and response text.
  */
 export async function runCortexAgentQuery(query: string, pat: string) {
