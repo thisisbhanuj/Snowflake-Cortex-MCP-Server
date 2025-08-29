@@ -1,20 +1,13 @@
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
-/* eslint-disable @typescript-eslint/restrict-plus-operands */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildAgentConfig, loadToolDefinitions } from "#builder/payloadBuilder.js";
-import { SSEOutput } from "#mcp/MCPTypes.js";
+import { DeltaEvent, DeltaItem, SSEOutput, ToolResult } from "#mcp/MCPTypes.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import fetch from "node-fetch";
 import { v4 as uuidv4 } from "uuid";
 
-let mcpInstance: McpServer | null = null;
-
 const REST_SQL_ENDPOINT = process.env.REST_SQL_ENDPOINT ?? "";
 const AGENT_ENDPOINT = process.env.AGENT_ENDPOINT ?? "";
+
+let mcpInstance: McpServer | null = null;
 
 /**
  * Executes a SQL query via the REST SQL endpoint.
@@ -22,7 +15,7 @@ const AGENT_ENDPOINT = process.env.AGENT_ENDPOINT ?? "";
  * @param {string} pat - Programmatic access token for authentication.
  * @returns {Promise<any>} The JSON response from the SQL API or an error object.
  */
-export async function executeSQL(sql: string, pat: string): Promise<any> {
+export async function executeSQL(sql: string, pat: string): Promise<unknown> {
   try {
     const requestId = uuidv4();
     const sqlApiUrl = `${REST_SQL_ENDPOINT}?requestId=${requestId}`;
@@ -35,8 +28,11 @@ export async function executeSQL(sql: string, pat: string): Promise<any> {
 
     if (response.ok) return await response.json();
     return { error: `SQL API error: ${await response.text()}` };
-  } catch (err: any) {
-    return { error: `SQL execution error: ${err.message}` };
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return { error: `SQL execution error: ${err.message}` };
+    }
+    return { error: `SQL execution error: ${String(err)}` };
   }
 }
 
@@ -77,19 +73,22 @@ export function getMCPInstance() {
 /**
  * Parses tool results from Cortex Agent responses and updates the state.
  * @param {any[]} results - Array of tool result objects.
- * @param {{citations: any[], sql: string, text: string}} state - The state object to update with parsed values.
+ * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update with parsed values.
  */
 export function parseToolResults(
-  results: any[], state: { citations: any[]; sql: string; text: string }
+  results: unknown[],
+  state: { citations:unknown[]; sql: string; text: string }
 ) {
   for (const r of results) {
-    if (r.type !== "json") continue;
-    const j = r.json;
-    state.text += j.text ?? "";
-    if (j.sql) state.sql = j.sql;
-    if (j.searchResults) {
+    const result = r as ToolResult; // safe because we validate below
+    if (result.type !== "json" || !result.json) continue;
+
+    state.text += result.json.text ?? "";
+    if (result.json.sql) state.sql = result.json.sql;
+
+    if (result.json.searchResults) {
       state.citations.push(
-        ...j.searchResults.map((s: any) => ({
+        ...result.json.searchResults.map(s => ({
           doc_id: s.doc_id,
           source_id: s.source_id,
         })),
@@ -98,27 +97,32 @@ export function parseToolResults(
   }
 }
 
+
 /**
  * Processes delta content (chunks of partial results) from an SSE stream.
  * @param {any[]} content - The content array from the delta payload.
- * @param {{citations: any[], sql: string, text: string}} state - The state object to update.
+ * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
  */
 export function processDeltaContent(
-  content: any[], state: { citations: any[]; sql: string; text: string }
+  content: unknown[],
+  state: { citations: unknown[]; sql: string; text: string }
 ) {
-  for (const item of content) {
-    if (item.type === "text") state.text += item.text ?? "";
-    if (item.type === "tool_results") parseToolResults(item.tool_results?.content ?? [], state);
+  for (const item of content as DeltaItem[]) {
+    if (item.type === "text") {
+      state.text += item.text ?? "";
+    } else if (item.type === "tool_results") {
+      parseToolResults(item.tool_results?.content ?? [], state);
+    }
   }
 }
 
 /**
  * Processes a single line of SSE stream output.
  * @param {string} line - A line from the SSE response.
- * @param {{citations: any[], sql: string, text: string}} state - The state object to update.
+ * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
  */
 export function processLine(
-  line: string, state: { citations: any[]; sql: string; text: string }
+  line: string, state: { citations: unknown[]; sql: string; text: string }
 ) {
   if (line.startsWith("data:")) {
     processPayload(line.slice(5).trim(), state);
@@ -128,16 +132,21 @@ export function processLine(
 /**
  * Parses a JSON payload from an SSE response and updates the state.
  * @param {string} payload - The JSON payload string.
- * @param {{citations: any[], sql: string, text: string}} state - The state object to update.
+ * @param {{citations: unknown[], sql: string, text: string}} state - The state object to update.
  */
 export function processPayload(
-  payload: string, state: { citations: any[]; sql: string; text: string }
+  payload: string,
+  state: { citations: unknown[]; sql: string; text: string }
 ) {
   if (!payload || payload === "[DONE]") return;
+
   try {
-    const evt = JSON.parse(payload);
+    const evt = JSON.parse(payload) as DeltaEvent;
+
     const delta = evt.delta ?? evt.data?.delta;
-    if (delta) processDeltaContent(delta.content, state);
+    if (delta?.content) {
+      processDeltaContent(delta.content, state);
+    }
   } catch {
     // ignore bad JSON
   }
@@ -149,7 +158,7 @@ export function processPayload(
  * @returns {Promise<SSEOutput>} A tuple containing [text, sql, citations].
  */
 export async function processSSEResponse(resp: Response): Promise<SSEOutput> {
-  const state = { citations: [] as any[], sql: "", text: "" };
+  const state = { citations: [] as unknown[], sql: "", text: "" };
   const decoder = new TextDecoder("utf-8");
   // Treat body as a stream
   const stream = resp.body as unknown as NodeJS.ReadableStream;
@@ -168,7 +177,7 @@ export async function processSSEResponse(resp: Response): Promise<SSEOutput> {
  * Runs a Cortex Agent query end-to-end: sends query, processes SSE responses, and executes SQL if generated.
  * @param {string} query - The natural language query to run.
  * @param {string} pat - Programmatic access token for authentication.
- * @returns {Promise<{ citations: any[], results: any, sql: string, text: string }>} 
+ * @returns {Promise<{ citations: unknown[], results: any, sql: string, text: string }>} 
  * Object containing citations, SQL execution results (if any), generated SQL, and response text.
  */
 export async function runCortexAgentQuery(query: string, pat: string) {
