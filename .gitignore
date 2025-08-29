@@ -1,0 +1,9 @@
+# Ignore local credentials, build and config files
+.env
+*.local
+*.lock
+*.log
+/dist/*
+
+# Node Modules
+node_modules/*

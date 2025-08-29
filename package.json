@@ -1,0 +1,41 @@
+{
+  "name": "snowflake-cortex-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for Smowflake Cortex AI",
+  "type": "module",
+  "author": "BHANUJ",
+  "license": "MIT",
+  "private": true,
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "dev": "tsx --watch --env-file .env src/mcp/MCP.ts",
+    "dev:prod": "tsx --watch --env-file .env src/mcp/MCP.ts",
+    "start": "tsx --env-file .env dist/mcp/MCP.js",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "inspector": "npx @modelcontextprotocol/inspector tsx --env-file .env dist/mcp/MCP.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "@types/node": "^24.3.0",
+    "node-fetch": "^3.3.2",
+    "ts-node": "^10.9.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@tsconfig/node22": "^22.0.2",
+    "eslint": "^9.34.0",
+    "eslint-plugin-perfectionist": "^4.15.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.41.0"
+  }
+}

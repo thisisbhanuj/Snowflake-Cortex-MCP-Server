@@ -1,0 +1,225 @@
+name: TPCDS_SEMANTIC_VIEW_SM
+tables:
+  - name: CUSTOMER
+    synonyms:
+      - customer
+      - customers
+      - customer master
+    description: Customer master data including demographics and location
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: CUSTOMER
+    primary_key:
+      columns:
+        - C_CUSTOMER_SK
+    dimensions:
+      - name: BIRTHYEAR
+        expr: C_BIRTH_YEAR
+        data_type: NUMBER(38,0)
+      - name: COUNTRY
+        expr: C_BIRTH_COUNTRY
+        data_type: VARCHAR(20)
+      - name: C_CUSTOMER_SK
+        expr: c_customer_sk
+        data_type: NUMBER(38,0)
+  - name: DATE
+    synonyms:
+      - date
+      - calendar date
+      - order date
+      - sale date
+    description: Calendar date dimension for all sales
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: DATE_DIM
+    primary_key:
+      columns:
+        - D_DATE_SK
+    dimensions:
+      - name: DATE
+        expr: D_DATE
+        data_type: DATE
+      - name: D_DATE_SK
+        expr: d_date_sk
+        data_type: NUMBER(38,0)
+      - name: MONTH
+        expr: D_MOY
+        data_type: NUMBER(38,0)
+      - name: WEEK
+        expr: D_WEEK_SEQ
+        data_type: NUMBER(38,0)
+      - name: YEAR
+        expr: D_YEAR
+        data_type: NUMBER(38,0)
+  - name: DEMO
+    synonyms:
+      - demographics
+      - customer demographics
+    description: Customer demographics such as marital status and credit rating
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: CUSTOMER_DEMOGRAPHICS
+    primary_key:
+      columns:
+        - CD_DEMO_SK
+    dimensions:
+      - name: CD_DEMO_SK
+        expr: cd_demo_sk
+        data_type: NUMBER(38,0)
+      - name: CREDIT_RATING
+        expr: CD_CREDIT_RATING
+        data_type: VARCHAR(10)
+      - name: MARITAL_STATUS
+        expr: CD_MARITAL_STATUS
+        data_type: VARCHAR(1)
+  - name: ITEM
+    synonyms:
+      - item
+      - product
+      - sku
+      - catalog item
+    description: Product details including brand, category, and pricing
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: ITEM
+    primary_key:
+      columns:
+        - I_ITEM_SK
+    dimensions:
+      - name: BRAND
+        expr: I_BRAND
+        data_type: VARCHAR(50)
+      - name: CATEGORY
+        expr: I_CATEGORY
+        data_type: VARCHAR(50)
+      - name: CLASS
+        expr: I_CLASS
+        data_type: VARCHAR(50)
+      - name: I_ITEM_SK
+        expr: i_item_sk
+        data_type: NUMBER(38,0)
+    facts:
+      - name: COST
+        expr: i_wholesale_cost
+        data_type: NUMBER(7,2)
+      - name: PRICE
+        expr: i_current_price
+        data_type: NUMBER(7,2)
+  - name: STORE
+    synonyms:
+      - store
+      - retail store
+      - shop
+      - location
+    description: Store information including market, floor space, and state
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: STORE
+    primary_key:
+      columns:
+        - S_STORE_SK
+    dimensions:
+      - name: MARKET
+        expr: S_MARKET_ID
+        data_type: NUMBER(38,0)
+      - name: SQUAREFOOTAGE
+        expr: S_FLOOR_SPACE
+        data_type: NUMBER(38,0)
+      - name: STATE
+        expr: S_STATE
+        data_type: VARCHAR(2)
+      - name: STORECOUNTRY
+        expr: S_COUNTRY
+        data_type: VARCHAR(20)
+      - name: S_STORE_SK
+        expr: s_store_sk
+        data_type: NUMBER(38,0)
+    facts:
+      - name: TAX_RATE
+        expr: S_TAX_PRECENTAGE
+        data_type: NUMBER(5,2)
+  - name: STORESALES
+    synonyms:
+      - store sales
+      - sales
+      - transactions
+      - retail transactions
+    description: Sales fact table capturing items sold by date, store, and customer
+    base_table:
+      database: SEMANTIC_DATABASE
+      schema: TPCDS_SF10TCL
+      table: STORE_SALES
+    primary_key:
+      columns:
+        - SS_SOLD_DATE_SK
+        - SS_CDEMO_SK
+        - SS_ITEM_SK
+        - SS_STORE_SK
+        - SS_CUSTOMER_SK
+    dimensions:
+      - name: SS_CDEMO_SK
+        expr: ss_cdemo_sk
+        data_type: NUMBER(38,0)
+      - name: SS_CUSTOMER_SK
+        expr: ss_customer_sk
+        data_type: NUMBER(38,0)
+      - name: SS_ITEM_SK
+        expr: ss_item_sk
+        data_type: NUMBER(38,0)
+      - name: SS_SOLD_DATE_SK
+        expr: ss_sold_date_sk
+        data_type: NUMBER(38,0)
+      - name: SS_STORE_SK
+        expr: ss_store_sk
+        data_type: NUMBER(38,0)
+    facts:
+      - name: SALES_QUANTITY
+        expr: SS_QUANTITY
+        data_type: NUMBER(38,0)
+    metrics:
+      - name: TOTALCOST
+        expr: SUM(item.cost)
+      - name: TOTALSALESPRICE
+        expr: SUM(SS_SALES_PRICE)
+      - name: TOTALSALESQUANTITY
+        synonyms:
+          - total sales quantity
+          - total sales amount
+        expr: SUM(SS_QUANTITY)
+relationships:
+  - name: SALESTOCUSTOMER
+    left_table: STORESALES
+    right_table: CUSTOMER
+    relationship_columns:
+      - left_column: SS_CUSTOMER_SK
+        right_column: C_CUSTOMER_SK
+  - name: SALESTODATE
+    left_table: STORESALES
+    right_table: DATE
+    relationship_columns:
+      - left_column: SS_SOLD_DATE_SK
+        right_column: D_DATE_SK
+  - name: SALESTODEMO
+    left_table: STORESALES
+    right_table: DEMO
+    relationship_columns:
+      - left_column: SS_CDEMO_SK
+        right_column: CD_DEMO_SK
+  - name: SALESTOITEM
+    left_table: STORESALES
+    right_table: ITEM
+    relationship_columns:
+      - left_column: SS_ITEM_SK
+        right_column: I_ITEM_SK
+  - name: SALETOSTORE
+    left_table: STORESALES
+    right_table: STORE
+    relationship_columns:
+      - left_column: SS_STORE_SK
+        right_column: S_STORE_SK
+custom_instructions: We want the agent to prioritize chart creation for business leadership, so that they can get to the details in quick manner without any clutter and friction.

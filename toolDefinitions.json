@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Text2SQL",
+    "type": "cortex_analyst_text_to_sql",
+    "resources": {
+      "semantic_model_file": "${SEMANTIC_MODEL_TPCDS}"
+    }
+  },
+  {
+    "name": "Vehicles_Search",
+    "type": "cortex_search",
+    "resources": {
+      "id_column": "relative_path",
+      "max_results": 1,
+      "name": "${VEHICLES_SEARCH_SERVICE}",
+      "title_column": "title"
+    }
+  },
+  {
+    "name": "sql_execution_tool",
+    "type": "sql_exec"
+  }
+]
